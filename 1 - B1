@@ -1,0 +1,216 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+
+class PerceptronLinear:
+    def __init__(self, learning_rate=0.5):
+        self.learning_rate = learning_rate
+        self.weights = None
+        self.bias = None
+        self.history = []
+
+    def step_function(self, x):
+        """Função de ativação degrau"""
+        return 1 if x >= 0 else 0
+
+    def predict(self, X):
+        """Faz predição para uma amostra"""
+        output = np.dot(X, self.weights) + self.bias
+        return self.step_function(output)
+
+    def train_step_by_step(self, X, y):
+        """Treina o perceptron mostrando cada passo"""
+        n_samples, n_features = X.shape
+
+        # Inicializar pesos e bias
+        self.weights = np.array([0.8, -0.5])
+        self.bias = 0.0
+        print("Pesos iniciais:", self.weights)
+        print("Bias inicial:", self.bias)
+
+        # Plotar situação inicial
+        self.plot_decision_boundary(X, y, title="Situação Inicial", iteration=0)
+
+        iteration = 1
+        converged = False
+        max_iterations = 1000  # Evitar loop infinito
+
+        while not converged and iteration <= max_iterations:
+            converged = True
+            print(f"\n=== ITERAÇÃO {iteration} ===")
+
+            for i in range(n_samples):
+                # Calcular output
+                output_raw = np.dot(X[i], self.weights) + self.bias
+                prediction = self.step_function(output_raw)
+
+                print(f"\nAmostra {i+1}: {X[i]}, Classe esperada: {y[i]}")
+                print(f"Output bruto: {output_raw:.3f}")
+                print(f"Predição: {prediction}")
+
+                # Verificar se houve erro
+                error = y[i] - prediction
+
+                if error != 0:
+                    converged = False
+                    print(f"Erro: {error}")
+                    print(f"Pesos antes da atualização: {self.weights}")
+                    print(f"Bias antes da atualização: {self.bias}")
+
+                    # Atualizar pesos e bias
+                    self.weights += self.learning_rate * error * X[i]
+                    self.bias += self.learning_rate * error
+                    print(f"Pesos após atualização: {self.weights}")
+                    print(f"Bias após atualização: {self.bias}")
+
+                    # Salvar histórico
+                    self.history.append({
+                        'iteration': iteration,
+                        'sample': i+1,
+                        'weights': self.weights.copy(),
+                        'bias': self.bias,
+                        'error': error
+                    })
+
+                    # Plotar nova situação
+                    self.plot_decision_boundary(X, y,
+                                              title=f"Após Iteração {iteration} - Amostra {i+1}",
+                                              iteration=iteration)
+                    break
+                else:
+                    print("Classificação correta - pesos não alterados")
+
+            iteration += 1
+
+            # Verificar se todas as amostras foram classificadas corretamente
+            if converged:
+                print(f"\n✓ CONVERGÊNCIA ALCANÇADA na iteração {iteration-1}!")
+                print(f"Pesos finais: {self.weights}")
+                print(f"Bias final: {self.bias}")
+                break
+
+        if iteration > max_iterations:
+            print(f"\n⚠️ MÁXIMO DE ITERAÇÕES ATINGIDO ({max_iterations})")
+            print("O problema pode não ser linearmente separável ou precisa de ajustes nos parâmetros")
+
+    def plot_decision_boundary(self, X, y, title="", iteration=0):
+        """Plota os pontos e a reta de decisão"""
+        plt.figure(figsize=(10, 8))
+
+        # Plotar pontos
+        colors = ['red', 'blue']
+        labels = ['Maçã (0)', 'Laranja (1)']
+
+        for class_value in [0, 1]:
+            mask = y == class_value
+            plt.scatter(X[mask, 0], X[mask, 1],
+                       c=colors[class_value],
+                       label=labels[class_value],
+                       s=100,
+                       edgecolors='black',
+                       alpha=0.7)
+
+        # Plotar reta de decisão: w1*x1 + w2*x2 + bias = 0
+        if self.weights is not None:
+            w1, w2 = self.weights
+
+            # Calcular pontos da reta
+            x_min, x_max = X[:, 0].min() - 0.1, X[:, 0].max() + 0.1
+            if abs(w2) > 1e-6:  # Evitar divisão por zero
+                x_line = np.linspace(x_min, x_max, 100)
+                y_line = -(w1 * x_line + self.bias) / w2
+                plt.plot(x_line, y_line, 'k--',
+                        label=f'Reta: {w1:.3f}x1 + {w2:.3f}x2 + {self.bias:.3f} = 0',
+                        linewidth=2)
+
+        # Ajustar limites do gráfico baseado nos dados
+        x_margin = (X[:, 0].max() - X[:, 0].min()) * 0.1
+        y_margin = (X[:, 1].max() - X[:, 1].min()) * 0.1
+        plt.xlim(X[:, 0].min() - x_margin, X[:, 0].max() + x_margin)
+        plt.ylim(X[:, 1].min() - y_margin, X[:, 1].max() + y_margin)
+
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.xlabel('Peso (g)')
+        plt.ylabel('pH')
+        plt.title(f'{title}\nPesos: w1={self.weights[0]:.3f}, w2={self.weights[1]:.3f}, bias={self.bias:.3f}')
+        plt.show()
+
+    def test_final_model(self, X, y):
+        """Testa o modelo final com todas as amostras"""
+        print("\n=== TESTE DO MODELO FINAL ===")
+        fruit_names = ['Maçã', 'Laranja']
+
+        for i, (x, expected) in enumerate(zip(X, y)):
+            output_raw = np.dot(x, self.weights) + self.bias
+            prediction = self.step_function(output_raw)
+
+            print(f"Amostra {i+1} {x}: Output={output_raw:.3f}, "
+                  f"Predição={prediction} ({fruit_names[prediction]}), "
+                  f"Esperado={expected} ({fruit_names[expected]}) "
+                  f"{'✓' if prediction == expected else '✗'}")
+
+# Dados da tabela de frutas
+# X(1): Peso=113, pH=6.8 -> Maçã (0)
+# X(2): Peso=122, pH=4.7 -> Laranja (1)
+# X(3): Peso=107, pH=5.2 -> Maçã (0)
+# X(5): Peso=115, pH=2.9 -> Laranja (1)
+# X(6): Peso=120, pH=4.2 -> Laranja (1)
+
+X = np.array([
+    [113, 6.8],    # Maçã
+    [122, 4.7],    # Laranja
+    [107, 5.2],    # Maçã
+    [115, 2.9],    # Laranja
+    [120, 4.2]     # Laranja
+])
+
+y = np.array([0, 1, 0, 1, 1])  # 0=Maçã, 1=Laranja
+
+print("=== IMPLEMENTAÇÃO DO PERCEPTRON COM DADOS DE FRUTAS ===")
+print("Classificação: Maçã vs Laranja")
+print("\nDados do problema:")
+print("Atributos: [Peso(g), pH]")
+for i, (features, label) in enumerate(zip(X, y)):
+    fruit = "Maçã" if label == 0 else "Laranja"
+    print(f"X({i+1}): Peso={features[0]}g, pH={features[1]} -> {fruit}")
+
+print(f"Taxa de aprendizado: 0.5")
+
+print("\n=== NORMALIZANDO OS DADOS ===")  # <-- nova etapa
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+print("Dados normalizados:")
+for i, features in enumerate(X_scaled):
+    print(f"X({i+1}): Peso={features[0]:.3f}, pH={features[1]:.3f}")
+
+print("\n=== ANÁLISE DE SEPARABILIDADE LINEAR ===")
+print("Vamos verificar se os dados são linearmente separáveis...")
+
+# Criar e treinar o perceptron com dados normalizados
+perceptron = PerceptronLinear(learning_rate=0.5)
+perceptron.train_step_by_step(X_scaled, y)
+
+# Testar modelo final
+perceptron.test_final_model(X_scaled, y)
+
+# Mostrar histórico de treinamento
+print(f"\n=== RESUMO DO TREINAMENTO ===")
+print(f"Número total de atualizações: {len(perceptron.history)}")
+for entry in perceptron.history:
+    print(f"Iteração {entry['iteration']}, Amostra {entry['sample']}: "
+          f"Erro={entry['error']}, Pesos=[{entry['weights'][0]:.3f}, {entry['weights'][1]:.3f}], "
+          f"Bias={entry['bias']:.3f}")
+
+# Análise visual final (com dados normalizados)
+print(f"\n=== ANÁLISE DOS DADOS NORMALIZADOS ===")
+print("Maçãs (classe 0):")
+maca_mask = y == 0
+for i, point in enumerate(X_scaled[maca_mask]):
+    print(f"  Peso (normalizado): {point[0]:.3f}, pH (normalizado): {point[1]:.3f}")
+
+print("\nLaranjas (classe 1):")
+laranja_mask = y == 1
+for i, point in enumerate(X_scaled[laranja_mask]):
+    print(f"  Peso (normalizado): {point[0]:.3f}, pH (normalizado): {point[1]:.3f}")
